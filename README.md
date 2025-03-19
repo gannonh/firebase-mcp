@@ -1,262 +1,180 @@
-# Firebase MCP Server
+# Secure Firebase MCP Server
 
-![Project Logo](./assets/logo.png)
-
-<a href="https://glama.ai/mcp/servers/x4i8z2xmrq">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/x4i8z2xmrq/badge" alt="Firebase MCP server" />
-</a>
-
-[![Firebase Tests CI](https://github.com/gannonh/firebase-mcp/actions/workflows/firebase-tests.yml/badge.svg)](https://github.com/gannonh/firebase-mcp/actions/workflows/firebase-tests.yml)
-
-## Overview
-
-The [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) is an open protocol that enables LLM client applications to use tools and access external data sources. This MCP server allows any LLM client that supports the MCP protocol to interact with Firebase services including:
-
-- **Authentication**: User management and verification
-- **Firestore**: Document database operations
-- **Storage**: File storage and retrieval
-
-The server exposes Firebase services through MCP tools, making them accessible to LLM clients including [Claude Desktop](https://claude.ai/download), [Cursor](https://www.cursor.com/), [Roo Code](https://github.com/RooVetGit/Roo-Code), and [Cline](https://cline.bot/), while handling authentication and connection management.
-
-## Setup
-
-> The easiest way to install the Firebase MCP server is to simply feed your LLM client (like Cline) the [llms-install.md](./llms-install.md) file.
-
-### 1. Firebase Configuration
-
-- Go to [Firebase Console](https://console.firebase.google.com)
-- Navigate to Project Settings > Service Accounts
-- Click "Generate new private key"
-- Save the JSON file securely
-
-### 2. Environment Variables
-
-The server requires the following environment variables:
-
-- `SERVICE_ACCOUNT_KEY_PATH`: Path to your Firebase service account key JSON file (required)
-- `FIREBASE_STORAGE_BUCKET`: Bucket name for Firebase Storage (optional)
-  - If not provided, defaults to `[projectId].appspot.com`
-
-### 3. Install MCP Server
-
-Add the server configuration to your MCP settings file:
-
-- Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Cursor: `[project root]/.cursor/mcp.json`
-- Roo Code (VS Code Extension): (`~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json`)
-- Cline (VS Code Extension): `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
-
-MCP Servers can be installed manually or at runtime via npx (recommended). How you install determines your configuration:
-
-#### Configure for npx
-
-   ```json
-   {
-     "firebase-mcp": {
-       "command": "npx",
-       "args": [
-         "-y",
-         "@gannonh/firebase-mcp"
-       ],
-       "env": {
-         "SERVICE_ACCOUNT_KEY_PATH": "/absolute/path/to/serviceAccountKey.json",
-         "FIREBASE_STORAGE_BUCKET": "your-project-id.firebasestorage.app"
-       }
-     }
-   }
-   ```
-
-#### Configure for local installation
-
-   ```json
-   {
-     "firebase-mcp": {
-       "command": "node",
-       "args": [
-         "/absolute/path/to/firebase-mcp/dist/index.js"
-       ],
-       "env": {
-         "SERVICE_ACCOUNT_KEY_PATH": "/absolute/path/to/serviceAccountKey.json",
-         "FIREBASE_STORAGE_BUCKET": "your-project-id.firebasestorage.app"
-       }
-     }
-   }
-   ```
-
-#### Manual Installation
-
-##### Install Dependencies
-
-   ```bash
-   git clone https://github.com/gannonh/firebase-mcp
-   cd firebase-mcp
-   npm install
-   ```
-
-##### Build the Project
-
-   ```bash
-   npm run build
-   ```
-
-### Test your Installation
-
-To make sure everything is working, simply prompt your client: `Please run through and test all of your Firebase MCP tools.`
+A secure implementation of the Model Context Protocol (MCP) server for Firebase services with enhanced security features including authentication, access control, rate limiting, and audit logging.
 
 ## Features
 
-### Authentication Tools
+- **Authentication Middleware**: Verifies API keys, manages sessions, and authenticates clients
+- **Access Control**: Resource-based permissions for different clients accessing Firebase resources
+- **Rate Limiting**: Token bucket algorithm to limit request rates and prevent abuse
+- **Audit Logging**: Comprehensive logging of all operations for security monitoring and compliance
+- **Secure Configuration**: Environment-based configuration with secure defaults
 
-- `auth_get_user`: Get user details by ID or email
+## Installation
 
-  ```typescript
-  {
-    identifier: string // User ID or email address
-  }
-  ```
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/secure-firebase-mcp.git
+cd secure-firebase-mcp
+
+# Install dependencies
+npm install
+
+# Configure environment variables (interactive)
+npm run config
+
+# Or configure manually
+cp .env.example .env
+# Edit .env with your configuration
+
+# Build the project
+npm run build
+
+# Start the server
+npm start
+```
+
+## Configuration
+
+The server can be configured using environment variables in the `.env` file:
+
+### Server Configuration
+
+- `SERVER_NAME`: Name of the server (default: firebase-mcp-secure)
+- `SERVER_VERSION`: Version of the server (default: 1.0.0)
+- `PORT`: HTTP port to listen on (default: 3000)
+- `TRANSPORT`: Transport protocol to use ('http' or 'stdio', default: 'http')
+- `ENABLE_SECURITY`: Enable security features (default: true)
+
+### Security Settings
+
+- `SESSION_SECRET`: Secret for session encryption
+- `SESSION_EXPIRY`: Session expiry time in seconds (default: 3600)
+- `JWT_SECRET`: Secret for JWT token signing
+- `JWT_EXPIRY`: JWT token expiry time in seconds (default: 86400)
+
+### Admin Configuration
+
+- `ADMIN_API_KEY`: Custom API key for the admin client (optional)
+
+### CORS Configuration
+
+- `CORS_ORIGINS`: Comma-separated list of allowed origins for CORS
+
+### Audit Logging
+
+- `LOG_DIRECTORY`: Directory for log files (default: logs)
+- `LOG_MAX_DAYS`: Number of days to keep logs (default: 30)
+- `LOG_ROTATION_INTERVAL`: Interval for log rotation (default: 1d)
+- `CONSOLE_LOGGING`: Enable console logging (default: true)
+
+### Firebase Configuration
+
+- `FIREBASE_PROJECT_ID`: Your Firebase project ID
+- `FIREBASE_CLIENT_EMAIL`: Your Firebase client email
+- `FIREBASE_PRIVATE_KEY`: Your Firebase private key
+
+## Security Modules
+
+### Authentication (src/lib/security/auth.ts)
+
+The authentication middleware verifies API keys, manages sessions, and handles client authentication. It provides:
+
+- API key validation
+- Session management
+- JWT token verification
+- Middleware for securing API endpoints
+
+### Access Control (src/lib/security/accessControl.ts)
+
+The access control middleware manages resource permissions for different clients:
+
+- Resource-based access rules
+- Permission checking for operations
+- Support for wildcards and operation types
+
+### Rate Limiting (src/lib/security/rateLimiter.ts)
+
+The rate limiting module prevents abuse by limiting the number of requests:
+
+- Token bucket algorithm implementation
+- Per-client and per-resource rate limits
+- Automatic token refill and bucket expiration
+
+### Audit Logging (src/lib/security/auditLogger.ts)
+
+The audit logger records all operations for security monitoring:
+
+- Detailed request and response logging
+- Log rotation and compression
+- Sensitive data redaction
+- Query capability for historical logs
+
+## API Tools
+
+The server provides the following MCP tools for Firebase operations:
 
 ### Firestore Tools
 
-- `firestore_add_document`: Add a document to a collection
+- `firestore_add_document`: Add a document to a Firestore collection
+- `firestore_list_collections`: List collections in Firestore
+- `firestore_list_documents`: List documents from a Firestore collection
+- `firestore_get_document`: Get a document from a Firestore collection
+- `firestore_update_document`: Update a document in a Firestore collection
+- `firestore_delete_document`: Delete a document from a Firestore collection
 
-  ```typescript
-  {
-    collection: string,
-    data: object
-  }
-  ```
+### Authentication Tools
 
-- `firestore_list_collections`: List available collections
-
-  ```typescript
-  {
-    documentPath?: string, // Optional parent document path
-    limit?: number,        // Default: 20
-    pageToken?: string     // For pagination
-  }
-  ```
-
-- `firestore_list_documents`: List documents with optional filtering
-
-  ```typescript
-  {
-    collection: string,
-    filters?: Array<{
-      field: string,
-      operator: string,
-      value: any
-    }>,
-    limit?: number,
-    pageToken?: string
-  }
-  ```
-
-- `firestore_get_document`: Get a specific document
-
-  ```typescript
-  {
-    collection: string,
-    id: string
-  }
-  ```
-
-- `firestore_update_document`: Update an existing document
-
-  ```typescript
-  {
-    collection: string,
-    id: string,
-    data: object
-  }
-  ```
-
-- `firestore_delete_document`: Delete a document
-
-  ```typescript
-  {
-    collection: string,
-    id: string
-  }
-  ```
+- `auth_get_user`: Get a user by ID or email from Firebase Authentication
 
 ### Storage Tools
 
-- `storage_list_files`: List files in a directory
+- `storage_list_files`: List files in a given path in Firebase Storage
+- `storage_get_file_info`: Get file information including metadata and download URL
 
-  ```typescript
-  {
-    directoryPath?: string, // Optional path, defaults to root
-    pageSize?: number,      // Number of items per page, defaults to 10
-    pageToken?: string      // Token for pagination
-  }
-  ```
+## Utility Tools
 
-- `storage_get_file_info`: Get file metadata and download URL
+The project includes several utility tools to help with setup and management:
 
-  ```typescript
-  {
-    filePath: string // Path to the file in storage
-  }
-  ```
+### Environment Configuration Generator
 
-## Development
-
-### Building
+A tool to help generate environment variables from a Firebase service account key file:
 
 ```bash
-npm run build
+npm run config
 ```
 
-### Testing
+This interactive script will:
 
-The project uses Jest for testing. Tests can be run against Firebase emulators to avoid affecting production data.
+1. Ask for the path to your Firebase service account key JSON file
+2. Generate secure random strings for session and JWT secrets
+3. Create a `.env` file with all necessary configuration
+4. Generate an admin API key that can be used for initial setup
 
-1. **Install Firebase Emulators**
+### Admin Client Setup
 
-   ```bash
-   npm install -g firebase-tools
-   firebase init emulators
-   ```
+The server automatically creates an admin client with full access rights on first startup if none exists. This is to ensure you always have an administrative access point to the server.
 
-2. **Start Emulators**
+The admin client details and API key are saved to `admin-api-key.txt` in the project directory.
 
-   ```bash
-   firebase emulators:start
-   ```
+## Security Best Practices
 
-3. **Run Tests**
+When deploying this server to production, please follow these security best practices:
 
-   ```bash
-   npm run test:emulator
-   ```
-
-### Architecture
-
-The server is structured into three main components:
-
-```
-src/
-├── index.ts              # Server entry point
-└── lib/
-    └── firebase/
-        ├── authClient.ts       # Authentication operations
-        ├── firebaseConfig.ts   # Firebase configuration
-        ├── firestoreClient.ts  # Firestore operations
-        └── storageClient.ts    # Storage operations
-```
-
-Each client module implements specific Firebase service operations and exposes them as MCP tools.
+1. **Use HTTPS**: Always deploy behind HTTPS in production
+2. **Secure Secrets**: Use a secure method to manage environment variables and secrets
+3. **Regular Auditing**: Review the audit logs regularly for suspicious activities
+4. **Strict Rate Limits**: Set appropriate rate limits for all clients
+5. **Minimal Permissions**: Follow the principle of least privilege for all access rules
+6. **Regular Updates**: Keep all dependencies up to date
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Implement changes with tests
-4. Submit a pull request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Related Resources
 
@@ -273,11 +191,13 @@ MIT License - see [LICENSE](LICENSE) file for details
 If you encounter this error when trying to access Firebase Storage:
 
 1. Check that your Firebase project has Storage enabled
+
    - Go to the Firebase Console
    - Navigate to Storage
    - Complete the initial setup if you haven't already
 
 2. Verify the correct bucket name
+
    - The default bucket name is usually `[projectId].appspot.com`
    - Some projects use `[projectId].firebasestorage.app` instead
    - You can find your bucket name in the Firebase Console under Storage
@@ -291,6 +211,7 @@ If you encounter this error when trying to access Firebase Storage:
 If you see this error:
 
 1. Verify your service account key path
+
    - Make sure the path in `SERVICE_ACCOUNT_KEY_PATH` is correct and absolute
    - Check that the file exists and is readable
 
@@ -303,6 +224,7 @@ If you see this error:
 If you see errors about invalid JSON:
 
 1. Make sure there are no `console.log` statements in the code
+
    - All logging should use `console.error` to avoid interfering with the JSON communication
    - The MCP protocol uses stdout for JSON communication
 

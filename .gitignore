@@ -1,11 +1,9 @@
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/
@@ -36,6 +34,8 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.local
+.env.*.local
+*.env.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -62,4 +62,23 @@ dist
 firebaseServiceKey.json
 
 .specstory/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific files
+Thumbs.db
+
+# Firebase
+admin-api-key.txt
+serviceAccountKey.json
+firebase-debug.log
+
+# Runtime data
+clients.json
+access-rules.json
+rate-limits.json
 

@@ -1,0 +1,20 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+## Documentation Usage
+- Always consult the project's **`PRD.md`** file located at the project root for clear understanding of goals and features.
+- Review all additional documentation files within the **`docs`** directory provided with the project.
+- If additional or updated documentation is required, use MCP servers (Brave Search) to locate official and current sources online.
+
+## Technical Stack Compliance
+- **Adhere strictly to the project's established technology stack.**
+- Do not introduce new technologies unless explicitly instructed and justified.
+- You may suggest alternative technologies if beneficial, but never implement them without user confirmation.
