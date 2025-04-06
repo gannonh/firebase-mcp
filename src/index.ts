@@ -16,13 +16,103 @@ import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } fr
 import * as admin from 'firebase-admin';
 import { logger } from './utils/logger.js';
 
+// Add these interfaces at the top of the file, after the imports
+interface FilterCondition {
+  field: string;
+  operator: admin.firestore.WhereFilterOp;
+  value: any;
+}
+
+interface OrderByCondition {
+  field: string;
+  direction?: 'asc' | 'desc';
+}
+
+interface ListDocumentsArgs extends Record<string, unknown> {
+  collection: string;
+  filters?: FilterCondition[];
+  orderBy?: OrderByCondition[];
+  limit?: number;
+  pageToken?: string;
+}
+
+interface AddDocumentArgs extends Record<string, unknown> {
+  collection: string;
+  data: Record<string, any>;
+}
+
+// Type guard functions
+function isAddDocumentArgs(args: Record<string, unknown>): args is AddDocumentArgs {
+  return typeof args.collection === 'string' && 
+         typeof args.data === 'object' && 
+         args.data !== null;
+}
+
+function isListDocumentsArgs(args: Record<string, unknown>): args is ListDocumentsArgs {
+  return typeof args.collection === 'string';
+}
+
 // Initialize Firebase
 function initializeFirebase() {
+  logger.info('=== Firebase MCP Server Initialization ===');
+  
+  // Log all environment variables related to Firebase
+  const firebaseEnvVars = {
+    USE_FIREBASE_EMULATOR: process.env.USE_FIREBASE_EMULATOR,
+    FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST,
+    FIREBASE_AUTH_EMULATOR_HOST: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+    FIREBASE_STORAGE_EMULATOR_HOST: process.env.FIREBASE_STORAGE_EMULATOR_HOST,
+    NODE_ENV: process.env.NODE_ENV,
+    SERVICE_ACCOUNT_KEY_PATH: process.env.SERVICE_ACCOUNT_KEY_PATH,
+    FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET
+  };
+  
+  logger.info('Firebase Environment Variables:', firebaseEnvVars);
+  
   try {
     const serviceAccountPath = process.env.SERVICE_ACCOUNT_KEY_PATH;
     if (!serviceAccountPath) {
       logger.error('SERVICE_ACCOUNT_KEY_PATH not set');
       return null;
+    }
+    
+    // Enhanced emulator detection
+    const useEmulator = process.env.USE_FIREBASE_EMULATOR === 'true';
+    const hasEmulatorHosts = !!(process.env.FIRESTORE_EMULATOR_HOST || 
+                               process.env.FIREBASE_AUTH_EMULATOR_HOST || 
+                               process.env.FIREBASE_STORAGE_EMULATOR_HOST);
+    
+    logger.info('Emulator Configuration:', {
+      USE_FIREBASE_EMULATOR: process.env.USE_FIREBASE_EMULATOR,
+      useEmulator: useEmulator,
+      hasEmulatorHosts: hasEmulatorHosts,
+      emulatorHosts: {
+        firestore: process.env.FIRESTORE_EMULATOR_HOST || 'not set',
+        auth: process.env.FIREBASE_AUTH_EMULATOR_HOST || 'not set',
+        storage: process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'not set'
+      }
+    });
+
+    if (useEmulator) {
+      logger.info('Emulator mode is enabled via USE_FIREBASE_EMULATOR flag');
+      if (!hasEmulatorHosts) {
+        logger.warn('Emulator mode is enabled but no emulator hosts are configured. Using defaults:');
+        // Set default emulator hosts if not set
+        if (!process.env.FIRESTORE_EMULATOR_HOST) {
+          process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+          logger.info('Set default Firestore emulator host: localhost:8080');
+        }
+        if (!process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+          process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+          logger.info('Set default Auth emulator host: localhost:9099');
+        }
+        if (!process.env.FIREBASE_STORAGE_EMULATOR_HOST) {
+          process.env.FIREBASE_STORAGE_EMULATOR_HOST = 'localhost:9199';
+          logger.info('Set default Storage emulator host: localhost:9199');
+        }
+      }
+    } else if (hasEmulatorHosts) {
+      logger.warn('Emulator hosts are set but USE_FIREBASE_EMULATOR is not "true". Emulator mode will not be used.');
     }
 
     try {
@@ -32,20 +122,57 @@ function initializeFirebase() {
         return existingApp;
       }
     } catch (error) {
-      // No existing app, continue with initialization
       logger.debug('No existing Firebase app, initializing new one');
     }
 
     const serviceAccount = require(serviceAccountPath);
     const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
-    logger.debug(`Initializing Firebase with storage bucket: ${storageBucket}`);
+    
+    // Log initialization details
+    logger.info('Initializing Firebase with configuration:', {
+      projectId: serviceAccount.project_id,
+      clientEmail: serviceAccount.client_email,
+      storageBucket: storageBucket,
+      emulatorMode: useEmulator,
+      environment: process.env.NODE_ENV || 'not set'
+    });
 
-    return admin.initializeApp({
+    // Configure emulators if enabled
+    if (useEmulator) {
+      logger.info('Connecting to Firebase emulators:', {
+        firestore: process.env.FIRESTORE_EMULATOR_HOST,
+        auth: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+        storage: process.env.FIREBASE_STORAGE_EMULATOR_HOST
+      });
+      
+      // Enable emulator connection
+      process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099';
+      process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || 'localhost:8080';
+      process.env.FIREBASE_STORAGE_EMULATOR_HOST = process.env.FIREBASE_STORAGE_EMULATOR_HOST || 'localhost:9199';
+    }
+
+    const app = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       storageBucket: storageBucket
     });
+
+    logger.info('Firebase initialization complete:', {
+      mode: useEmulator ? 'emulator' : 'production',
+      projectId: serviceAccount.project_id,
+      emulatorHosts: useEmulator ? {
+        firestore: process.env.FIRESTORE_EMULATOR_HOST,
+        auth: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+        storage: process.env.FIREBASE_STORAGE_EMULATOR_HOST
+      } : 'not using emulators'
+    });
+
+    return app;
   } catch (error) {
-    logger.error('Failed to initialize Firebase', error);
+    logger.error('Failed to initialize Firebase', {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      envVars: firebaseEnvVars
+    });
     return null;
   }
 }
@@ -363,9 +490,16 @@ class FirebaseMcpServer {
     // Handle tool execution
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args = {} } = request.params;
+      const startTime = Date.now();
+      
+      logger.info(`=== API Call: ${name} ===`, {
+        timestamp: new Date().toISOString(),
+        args: args
+      });
 
       try {
         if (!app) {
+          logger.error('Firebase not initialized');
           return {
             content: [{
               type: 'text',
@@ -378,9 +512,23 @@ class FirebaseMcpServer {
 
         switch (name) {
           case 'firestore_add_document': {
-            const collection = args.collection as string;
-            const data = args.data as Record<string, any>;
+            if (!isAddDocumentArgs(args)) {
+              throw new Error('Invalid arguments for firestore_add_document');
+            }
+            
+            const { collection, data } = args;
+            logger.debug(`Adding document to collection: ${collection}`, {
+              dataSize: JSON.stringify(data).length
+            });
+            
             const docRef = await admin.firestore().collection(collection).add(data);
+            const duration = Date.now() - startTime;
+            
+            logger.info(`Document added successfully`, {
+              collection,
+              docId: docRef.id,
+              duration: `${duration}ms`
+            });
             
             return {
               content: [{
@@ -394,76 +542,55 @@ class FirebaseMcpServer {
           }
 
           case 'firestore_list_documents': {
-            const collection = args.collection as string;
-            const limit = Math.min(Math.max(1, (args.limit as number) || 20), 100); // Default 20, max 100
+            if (!isListDocumentsArgs(args)) {
+              throw new Error('Invalid arguments for firestore_list_documents');
+            }
+            
+            const { collection, filters, orderBy, limit: rawLimit, pageToken } = args;
+            const limit = Math.min(Math.max(1, rawLimit || 20), 100);
+            
+            logger.debug(`Listing documents from collection: ${collection}`, {
+              limit,
+              filters,
+              orderBy
+            });
             
             let query: admin.firestore.Query = admin.firestore().collection(collection);
-
-            // Apply filters if provided
-            const filters = args.filters as Array<{
-              field: string;
-              operator: admin.firestore.WhereFilterOp;
-              value: any;
-            }> | undefined;
-
+            
             if (filters && filters.length > 0) {
               filters.forEach(filter => {
                 query = query.where(filter.field, filter.operator, filter.value);
+                logger.debug(`Applied filter:`, filter);
               });
             }
-
-            // Apply ordering if provided
-            const orderBy = args.orderBy as Array<{
-              field: string;
-              direction?: 'asc' | 'desc';
-            }> | undefined;
 
             if (orderBy && orderBy.length > 0) {
               orderBy.forEach(order => {
                 query = query.orderBy(order.field, order.direction || 'asc');
+                logger.debug(`Applied ordering:`, order);
               });
             }
 
-            // Apply pagination if pageToken is provided
-            const pageToken = args.pageToken as string | undefined;
             if (pageToken) {
               const lastDoc = await admin.firestore().doc(pageToken).get();
               if (lastDoc.exists) {
                 query = query.startAfter(lastDoc);
+                logger.debug(`Applied pagination from token: ${pageToken}`);
               }
             }
-            
-            // Apply limit
-            query = query.limit(limit);
-            
-            const snapshot = await query.get();
-            const documents = snapshot.docs.map(doc => {
-              const rawData = doc.data();
-              // Sanitize data to ensure it's JSON-serializable
-              const data = Object.entries(rawData).reduce((acc, [key, value]) => {
-                // Handle basic types directly
-                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
-                  acc[key] = value;
-                }
-                // Convert Date objects to ISO strings
-                else if (value instanceof Date) {
-                  acc[key] = value.toISOString();
-                }
-                // Convert arrays to strings
-                else if (Array.isArray(value)) {
-                  acc[key] = `[${value.join(', ')}]`;
-                }
-                // Convert other objects to string representation
-                else if (typeof value === 'object') {
-                  acc[key] = '[Object]';
-                }
-                // Convert other types to strings
-                else {
-                  acc[key] = String(value);
-                }
-                return acc;
-              }, {} as Record<string, any>);
 
+            query = query.limit(limit);
+            const snapshot = await query.get();
+            const duration = Date.now() - startTime;
+            
+            logger.info(`Documents retrieved successfully`, {
+              collection,
+              count: snapshot.size,
+              duration: `${duration}ms`
+            });
+
+            const documents = snapshot.docs.map(doc => {
+              const data = doc.data();
               return {
                 id: doc.id,
                 path: doc.ref.path,
@@ -471,10 +598,16 @@ class FirebaseMcpServer {
               };
             });
 
-            // Get the last document for pagination
+            const totalSize = JSON.stringify(documents).length;
+            logger.debug(`Response metrics:`, {
+              documentCount: documents.length,
+              totalSizeBytes: totalSize,
+              averageSizeBytes: Math.round(totalSize / documents.length)
+            });
+
             const lastVisible = snapshot.docs[snapshot.docs.length - 1];
             const nextPageToken = lastVisible ? lastVisible.ref.path : null;
-            
+
             return {
               content: [{
                 type: 'text',
@@ -863,12 +996,19 @@ class FirebaseMcpServer {
           }
 
           default:
+            logger.error(`Unknown tool: ${name}`);
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const duration = Date.now() - startTime;
         
-        // Check if it's an index error and extract the index creation URL
+        logger.error(`API call failed: ${name}`, {
+          error: errorMessage,
+          duration: `${duration}ms`,
+          args: args
+        });
+
         if (errorMessage.includes('FAILED_PRECONDITION') && errorMessage.includes('requires an index')) {
           const indexUrl = errorMessage.match(/https:\/\/console\.firebase\.google\.com[^\s]*/)?.[0];
           return {
