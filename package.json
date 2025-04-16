@@ -1,5 +1,5 @@
 {
-  "name": "@gannonh/firebase-mcp",
+  "name": "@gthumb/firebase-mcp",
   "version": "1.3.4",
   "description": "Firebase MCP server for interacting with Firebase services through the Model Context Protocol",
   "main": "dist/index.js",
@@ -67,14 +67,14 @@
     "storage",
     "authentication"
   ],
-  "author": "Gannon Hall (https://github.com/gannonh)",
+  "author": "GreenThumb",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gannonh/firebase-mcp.git"
+    "url": "git+https://github.com/GreenThumbMarket/firebase-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/gannonh/firebase-mcp/issues"
+    "url": "https://github.com/GreenThumbMarket/firebase-mcp/issues"
   },
-  "homepage": "https://github.com/gannonh/firebase-mcp#readme"
+  "homepage": "https://github.com/GreenThumbMarket/firebase-mcp#readme"
 }
