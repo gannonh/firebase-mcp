@@ -23,6 +23,11 @@ import {getFirestore} from 'firebase-admin/firestore';
 import { logger } from './utils/logger.js';
 import { Timestamp } from 'firebase-admin/firestore';
 
+console.debug = logger.debug;
+console.log = logger.info;
+console.warn = logger.warn;
+console.error = logger.error;
+
 // Initialize Firebase
 function initializeFirebase() {
   try {
