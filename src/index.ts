@@ -484,8 +484,15 @@ class FirebaseMcpServer {
         switch (name) {
           case 'firestore_add_document': {
             const collection = args.collection as string;
-            const data = args.data as Record<string, any>;
-
+            let data = args.data as Record<string, any> | string;
+            if (typeof data === 'string') {
+              try {
+                data = JSON.parse(data);
+                logger.debug('Parsed data as JSON');
+              } catch (e) {
+                logger.warn('Failed to parse data as JSON');
+              }
+            }
             // Process server timestamps and convert ISO date strings to Timestamps
             const processedData = Object.entries(data).reduce(
               (acc, [key, value]) => {
@@ -721,8 +728,15 @@ class FirebaseMcpServer {
           case 'firestore_update_document': {
             const collection = args.collection as string;
             const id = args.id as string;
-            const data = args.data as Record<string, any>;
-
+            let data = args.data as Record<string, any> | string;
+            if (typeof data === 'string') {
+              try {
+                data = JSON.parse(data);
+                logger.debug('Parsed data as JSON');
+              } catch (e) {
+                logger.warn('Failed to parse data as JSON');
+              }
+            }
             // Process server timestamps and convert ISO date strings to Timestamps
             const processedData = Object.entries(data).reduce(
               (acc, [key, value]) => {
