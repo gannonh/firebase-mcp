@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/gannonh-firebase-mcp-badge.png)](https://mseep.ai/app/gannonh-firebase-mcp)
+
 # Firebase MCP
 
 
