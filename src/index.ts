@@ -714,23 +714,12 @@ class FirebaseMcpServer {
             // Sanitize data to ensure it's JSON-serializable
             const data = Object.entries(rawData || {}).reduce(
               (acc, [key, value]) => {
-                if (
-                  typeof value === 'string' ||
-                  typeof value === 'number' ||
-                  typeof value === 'boolean' ||
-                  value === null
-                ) {
-                  acc[key] = value;
-                } else if (value instanceof Date) {
+                if (value instanceof Date) {
                   acc[key] = value.toISOString();
                 } else if (value instanceof Timestamp) {
                   acc[key] = value.toDate().toISOString();
-                } else if (Array.isArray(value)) {
-                  acc[key] = `[${value.join(', ')}]`;
-                } else if (typeof value === 'object') {
-                  acc[key] = '[Object]';
                 } else {
-                  acc[key] = String(value);
+                  acc[key] = value;
                 }
                 return acc;
               },
