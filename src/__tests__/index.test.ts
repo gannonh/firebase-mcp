@@ -537,7 +537,9 @@ describe('Firebase MCP Server', () => {
       vi.resetModules();
 
       // Set up mocks again
-      vi.doMock('@modelcontextprotocol/sdk/server/index.js', () => ({ Server: serverConstructor }));
+      vi.doMock('@modelcontextprotocol/sdk/server/index.js', () => ({
+        Server: serverConstructor,
+      }));
       vi.doMock('../utils/logger', () => ({ logger: loggerMock }));
       vi.doMock('firebase-admin', () => adminMock);
 
@@ -1831,6 +1833,84 @@ describe('Firebase MCP Server', () => {
         // Verify the error response
         const content = JSON.parse(result.content[0].text);
         expect(content).toHaveProperty('error', 'Firebase initialization failed');
+      });
+    });
+
+    describe('firestore_count_documents', () => {
+      it('should count documents in a collection', async () => {
+        // Mock the count().get() chain
+        const countValue = 5;
+        const countMock = vi.fn().mockReturnThis();
+        const getMock = vi.fn().mockResolvedValue({
+          data: () => ({ count: countValue }),
+        });
+
+        // Mock the query chain
+        const queryMock = {
+          where: vi.fn().mockReturnThis(),
+          count: countMock,
+          get: getMock,
+        };
+
+        // Mock collection to return the queryMock
+        const collectionMock = {
+          where: queryMock.where,
+          count: queryMock.count,
+          get: queryMock.get,
+        };
+
+        adminMock.firestore = () => ({
+          collection: vi.fn().mockReturnValue(collectionMock),
+        });
+
+        const result = await callToolHandler({
+          params: {
+            name: 'firestore_count_documents',
+            arguments: {
+              collection: 'test',
+              filters: [{ field: 'status', operator: '==', value: 'active' }],
+            },
+          },
+        });
+
+        const content = JSON.parse(result.content[0].text);
+        expect(content).toHaveProperty('count', countValue);
+      });
+
+      it('should handle missing filters', async () => {
+        const countValue = 3;
+        const countMock = vi.fn().mockReturnThis();
+        const getMock = vi.fn().mockResolvedValue({
+          data: () => ({ count: countValue }),
+        });
+
+        const queryMock = {
+          where: vi.fn().mockReturnThis(),
+          count: countMock,
+          get: getMock,
+        };
+
+        const collectionMock = {
+          where: queryMock.where,
+          count: queryMock.count,
+          get: queryMock.get,
+        };
+
+        adminMock.firestore = () => ({
+          collection: vi.fn().mockReturnValue(collectionMock),
+        });
+
+        const result = await callToolHandler({
+          params: {
+            name: 'firestore_count_documents',
+            arguments: {
+              collection: 'test',
+            },
+          },
+        });
+
+        const content = JSON.parse(result.content[0].text);
+        expect(content).toHaveProperty('count', countValue);
       });
     });
   });
