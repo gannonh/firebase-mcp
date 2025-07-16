@@ -471,6 +471,44 @@ class FirebaseMcpServer {
             required: ['collectionId'],
           },
         },
+        {
+          name: 'firestore_count_documents',
+          description:
+            'Count the number of documents in a Firestore collection, with optional filters',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              collection: {
+                type: 'string',
+                description: 'Collection name',
+              },
+              filters: {
+                type: 'array',
+                description: 'Array of filter conditions',
+                items: {
+                  type: 'object',
+                  properties: {
+                    field: {
+                      type: 'string',
+                      description: 'Field name to filter',
+                    },
+                    operator: {
+                      type: 'string',
+                      description:
+                        'Comparison operator (==, >, <, >=, <=, array-contains, in, array-contains-any)',
+                    },
+                    value: {
+                      type: 'string',
+                      description: 'Value to compare against (use ISO format for dates)',
+                    },
+                  },
+                  required: ['field', 'operator', 'value'],
+                },
+              },
+            },
+            required: ['collection'],
+          },
+        },
       ],
     }));
 
@@ -544,6 +582,57 @@ class FirebaseMcpServer {
               ],
             };
             logger.debug('firestore_add_document response:', JSON.stringify(response));
+            return response;
+          }
+          case 'firestore_count_documents': {
+            const collection = args.collection as string;
+            let query: admin.firestore.Query = admin.firestore().collection(collection);
+
+            // Apply filters if provided
+            const filters = args.filters as
+              | Array<{
+                  field: string;
+                  operator: admin.firestore.WhereFilterOp;
+                  value: unknown;
+                }>
+              | undefined;
+
+            if (filters && filters.length > 0) {
+              filters.forEach(filter => {
+                let filterValue = filter.value;
+
+                // Check if this might be a timestamp value in ISO format
+                if (
+                  typeof filterValue === 'string' &&
+                  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(filterValue)
+                ) {
+                  try {
+                    // Convert ISO string to Timestamp for Firestore queries
+                    filterValue = admin.firestore.Timestamp.fromDate(new Date(filterValue));
+                  } catch {
+                    // If conversion fails, use the original value
+                    logger.warn(`Failed to convert timestamp string to Timestamp: ${filterValue}`);
+                  }
+                }
+
+                query = query.where(filter.field, filter.operator, filterValue);
+              });
+            }
+
+            // Get the count
+            const snapshot = await query.count().get();
+            const count = snapshot.data().count;
+
+            // Return the count in the response
+            const response = {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({ count }),
+                },
+              ],
+            };
+            logger.debug('firestore_count_documents response:', JSON.stringify(response));
             return response;
           }
 
