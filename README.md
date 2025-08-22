@@ -9,6 +9,8 @@
 
 [![Firebase Tests CI](https://github.com/gannonh/firebase-mcp/actions/workflows/tests.yml/badge.svg)](https://github.com/gannonh/firebase-mcp/actions/workflows/tests.yml)
 
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/gannonh/firebase-mcp)](https://archestra.ai/mcp-catalog/gannonh__firebase-mcp)
+
 ## Overview
 
 **Firebase MCP** enables AI assistants to work directly with Firebase services, including:
