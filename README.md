@@ -9,6 +9,10 @@
 
 [![Firebase Tests CI](https://github.com/gannonh/firebase-mcp/actions/workflows/tests.yml/badge.svg)](https://github.com/gannonh/firebase-mcp/actions/workflows/tests.yml)
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/gannonh-firebase-mcp).
+
 ## Overview
 
 **Firebase MCP** enables AI assistants to work directly with Firebase services, including:
