@@ -107,7 +107,15 @@ describe('Multi-database support', () => {
    * including a working Firebase app so getFirestoreInstance succeeds.
    */
   async function setupModule(configOverrides: Record<string, unknown> = {}) {
-    const fakeApp = { name: '[DEFAULT]' };
+    const fakeApp = {
+      name: '[DEFAULT]',
+      options: {
+        projectId: 'test-project',
+        credential: {
+          getAccessToken: vi.fn().mockResolvedValue({ access_token: 'test-token' }),
+        },
+      },
+    };
 
     const adminMock = {
       default: {
@@ -178,6 +186,9 @@ describe('Multi-database support', () => {
     }));
     vi.doMock('../transports/index.js', () => ({
       initializeTransport: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.doMock('../lib/firebase/firebaseConfig.js', () => ({
+      getProjectId: vi.fn().mockReturnValue('test-project'),
     }));
     vi.doMock('fs', () => fsMock);
 
@@ -387,15 +398,11 @@ describe('Multi-database support', () => {
 
       const content = JSON.parse(result.content[0].text);
 
-      // In test env, app may not be fully initialized — accept either outcome
-      if (content.error) {
-        expect(content).toHaveProperty('error');
-      } else {
-        expect(content.databases).toHaveLength(2);
-        expect(content.databases[0].id).toBe('(default)');
-        expect(content.databases[1].id).toBe('my-other-db');
-        expect(content.databases[0].location).toBe('us-east1');
-      }
+      expect(content.databases).toHaveLength(2);
+      expect(content.databases[0].id).toBe('(default)');
+      expect(content.databases[1].id).toBe('my-other-db');
+      expect(content.databases[0].location).toBe('us-east1');
+      expect(content.databases[0].type).toBe('FIRESTORE_NATIVE');
     });
 
     it('should handle API errors gracefully', async () => {

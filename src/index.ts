@@ -22,6 +22,7 @@ import { logger } from './utils/logger.js';
 import { Timestamp, getFirestore } from 'firebase-admin/firestore';
 import config from './config.js';
 import { initializeTransport } from './transports/index.js';
+import { getProjectId } from './lib/firebase/firebaseConfig.js';
 import * as fs from 'fs';
 
 // Initialize Firebase
@@ -1585,7 +1586,7 @@ class FirebaseMcpServer {
               const tokenResult = await credential.getAccessToken();
               const projectId =
                 app.options.projectId ||
-                (app.options.credential as unknown as { projectId?: string }).projectId;
+                (config.serviceAccountKeyPath ? getProjectId(config.serviceAccountKeyPath) : null);
 
               if (!projectId) {
                 return {
@@ -1599,9 +1600,17 @@ class FirebaseMcpServer {
               }
 
               const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases`;
-              const response = await fetch(url, {
-                headers: { Authorization: `Bearer ${tokenResult.access_token}` },
-              });
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000);
+              let response: Response;
+              try {
+                response = await fetch(url, {
+                  headers: { Authorization: `Bearer ${tokenResult.access_token}` },
+                  signal: controller.signal,
+                });
+              } finally {
+                clearTimeout(timeoutId);
+              }
 
               if (!response.ok) {
                 const errorBody = await response.text();

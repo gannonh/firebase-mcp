@@ -27,7 +27,7 @@ Single test file: `npx vitest run path/to/file.test.ts`
 ### Server Core (`src/index.ts`)
 Single `FirebaseMcpServer` class that:
 1. Initializes Firebase Admin SDK from `SERVICE_ACCOUNT_KEY_PATH`
-2. Registers 12 MCP tools via `setupToolHandlers()` (ListTools + CallTool handlers)
+2. Registers MCP tools via `setupToolHandlers()` (ListTools + CallTool handlers)
 3. Dispatches tool calls through a switch statement
 4. Connects to a transport (stdio or HTTP)
 
