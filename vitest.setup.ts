@@ -63,7 +63,7 @@ function initializeFirebase() {
     return admin;
   } catch (error) {
     console.error('Firebase initialization failed:', error);
-    throw error;
+    // Don't throw — unit tests mock Firebase and don't need real credentials
   }
 }
 

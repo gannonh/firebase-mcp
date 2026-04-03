@@ -41,7 +41,7 @@ Single `FirebaseMcpServer` class that:
 - `http.ts` - Express.js server with session-based SSE for MCP over HTTP
 
 ### Configuration (`src/config.ts`)
-Environment variables loaded via dotenv. `SERVICE_ACCOUNT_KEY_PATH` is required; transport defaults to stdio. Auto-detects stdio context from TTY state.
+Environment variables loaded via dotenv. `SERVICE_ACCOUNT_KEY_PATH` is required; transport defaults to stdio. `FIRESTORE_DATABASE_ID` optionally targets a named Firestore database. Auto-detects stdio context from TTY state.
 
 ## Key Patterns
 
