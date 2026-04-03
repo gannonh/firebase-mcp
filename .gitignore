@@ -69,3 +69,7 @@ firebase.json
 firestore.indexes.json
 firestore.rules
 storage.rules
+
+
+# claude settings
+.claude/settings.local.json
