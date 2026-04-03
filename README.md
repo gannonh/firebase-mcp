@@ -125,8 +125,9 @@ Edit: `[project root]/.cursor/mcp.json`
 | `firestore_delete_document`        | Delete a document              | `collection`, `id`         |
 | `firestore_list_collections`       | List root collections          | None                       |
 | `firestore_query_collection_group` | Query across subcollections    | `collectionId`             |
+| `firestore_list_databases`         | List all databases in project  | None                       |
 
-All Firestore tools accept an optional `databaseId` parameter to target a specific named Firestore database. The resolution order is: per-call `databaseId` parameter → `FIRESTORE_DATABASE_ID` environment variable → `(default)`.
+All Firestore tools (except `firestore_list_databases`) accept an optional `databaseId` parameter to target a specific named Firestore database. The resolution order is: per-call `databaseId` parameter → `FIRESTORE_DATABASE_ID` environment variable → `(default)`. Use `firestore_list_databases` to discover available database IDs.
 
 ### Storage Tools
 

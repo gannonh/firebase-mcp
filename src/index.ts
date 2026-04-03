@@ -498,6 +498,16 @@ class FirebaseMcpServer {
             required: ['collectionId'],
           },
         },
+        {
+          name: 'firestore_list_databases',
+          description:
+            'List all Firestore databases in the Firebase project. Returns database IDs, locations, and types.',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -1541,6 +1551,109 @@ class FirebaseMcpServer {
                 JSON.stringify(response)
               );
               return response;
+            }
+          }
+
+          case 'firestore_list_databases': {
+            try {
+              logger.debug('Listing Firestore databases');
+
+              if (!app) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ error: 'Firebase initialization failed' }),
+                    },
+                  ],
+                };
+              }
+
+              // Get access token from the Firebase app credential
+              const credential = app.options.credential;
+              if (!credential) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ error: 'No credential available' }),
+                    },
+                  ],
+                };
+              }
+
+              const tokenResult = await credential.getAccessToken();
+              const projectId =
+                app.options.projectId ||
+                (app.options.credential as unknown as { projectId?: string }).projectId;
+
+              if (!projectId) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ error: 'Could not determine project ID' }),
+                    },
+                  ],
+                };
+              }
+
+              const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases`;
+              const response = await fetch(url, {
+                headers: { Authorization: `Bearer ${tokenResult.access_token}` },
+              });
+
+              if (!response.ok) {
+                const errorBody = await response.text();
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        error: `Failed to list databases: ${response.status}`,
+                        details: errorBody,
+                      }),
+                    },
+                  ],
+                };
+              }
+
+              const data = (await response.json()) as {
+                databases?: Array<{
+                  name?: string;
+                  locationId?: string;
+                  type?: string;
+                  concurrencyMode?: string;
+                  deleteProtectionState?: string;
+                }>;
+              };
+              const databases = (data.databases || []).map(db => ({
+                id: db.name?.split('/').pop() || '',
+                location: db.locationId || '',
+                type: db.type || '',
+              }));
+
+              logger.debug(`Found ${databases.length} databases`);
+
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({ databases }),
+                  },
+                ],
+              };
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              logger.error('Error listing databases:', error);
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({ error: errorMessage }),
+                  },
+                ],
+              };
             }
           }
 
