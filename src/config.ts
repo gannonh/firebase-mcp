@@ -7,6 +7,7 @@
  * Environment variables:
  * - SERVICE_ACCOUNT_KEY_PATH: Path to Firebase service account key (required)
  * - FIREBASE_STORAGE_BUCKET: Firebase Storage bucket name (optional)
+ * - FIRESTORE_DATABASE_ID: Firestore database ID (optional, defaults to '(default)')
  * - MCP_TRANSPORT: Transport type to use (stdio, http) (default: stdio)
  * - MCP_HTTP_PORT: Port for HTTP transport (default: 3000)
  * - MCP_HTTP_HOST: Host for HTTP transport (default: localhost)
@@ -38,6 +39,8 @@ export interface ServerConfig {
   serviceAccountKeyPath: string | null;
   /** Firebase storage bucket name */
   storageBucket: string | null;
+  /** Firestore database ID (defaults to '(default)') */
+  firestoreDatabaseId: string | null;
   /** Transport type (stdio, http) */
   transport: TransportType;
   /** HTTP transport configuration */
@@ -123,6 +126,7 @@ export function getConfig(): ServerConfig {
     // Client-provided environment variables take precedence over .env
     serviceAccountKeyPath: process.env.SERVICE_ACCOUNT_KEY_PATH || null,
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || null,
+    firestoreDatabaseId: process.env.FIRESTORE_DATABASE_ID || null,
     transport,
     http: {
       port: parseInt(process.env.MCP_HTTP_PORT || '3000', 10),

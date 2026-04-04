@@ -99,23 +99,11 @@ export async function list_collections(
   documentPath?: string,
   _limit: number = 20,
   _pageToken?: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  adminInstance?: any
+  firestoreInstance?: FirebaseFirestore.Firestore
 ): Promise<FirestoreResponse> {
   try {
-    // Use the passed admin instance if available, otherwise use the imported one
-    const adminToUse = adminInstance || admin;
-
-    // Check if Firebase admin is properly initialized
-    if (!adminToUse || typeof adminToUse.firestore !== 'function') {
-      return {
-        content: [{ type: 'text', text: JSON.stringify({ error: 'Firebase not initialized' }) }],
-        isError: true,
-      };
-    }
-
-    // Get the Firestore instance
-    const firestore = adminToUse.firestore();
+    // Use the passed Firestore instance if available, otherwise get from admin
+    const firestore = firestoreInstance || admin.firestore();
     if (!firestore) {
       return {
         content: [

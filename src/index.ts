@@ -19,9 +19,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import admin from 'firebase-admin';
 import { logger } from './utils/logger.js';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, getFirestore } from 'firebase-admin/firestore';
 import config from './config.js';
 import { initializeTransport } from './transports/index.js';
+import { getProjectId } from './lib/firebase/firebaseConfig.js';
 import * as fs from 'fs';
 
 // Initialize Firebase
@@ -82,6 +83,18 @@ let app: admin.app.App | null = null;
   app = await initializeFirebase();
 })();
 
+/**
+ * Returns a Firestore instance for the resolved database ID.
+ * Priority: explicit databaseId argument → FIRESTORE_DATABASE_ID env var → '(default)'.
+ */
+function getFirestoreInstance(databaseId?: string): FirebaseFirestore.Firestore {
+  const resolvedId = databaseId || config.firestoreDatabaseId || '(default)';
+  if (!app) {
+    throw new Error('Firebase app is not initialized');
+  }
+  return getFirestore(app, resolvedId);
+}
+
 // This interface was previously used but is now handled by the SDK
 // Keeping it commented for reference
 // interface FirebaseToolResponse {
@@ -129,6 +142,13 @@ class FirebaseMcpServer {
    * @private
    */
   private setupToolHandlers(): void {
+    // Shared property definition for optional Firestore database targeting
+    const databaseIdProperty = {
+      type: 'string' as const,
+      description:
+        'Optional Firestore database ID. When omitted, falls back to FIRESTORE_DATABASE_ID env var, then to (default).',
+    };
+
     // Register available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
@@ -146,6 +166,7 @@ class FirebaseMcpServer {
                 type: 'object',
                 description: 'Document data',
               },
+              databaseId: databaseIdProperty,
             },
             required: ['collection', 'data'],
           },
@@ -160,6 +181,7 @@ class FirebaseMcpServer {
                 type: 'string',
                 description: 'Collection name',
               },
+              databaseId: databaseIdProperty,
               filters: {
                 type: 'array',
                 description: 'Array of filter conditions',
@@ -230,6 +252,7 @@ class FirebaseMcpServer {
                 type: 'string',
                 description: 'Document ID',
               },
+              databaseId: databaseIdProperty,
             },
             required: ['collection', 'id'],
           },
@@ -252,6 +275,7 @@ class FirebaseMcpServer {
                 type: 'object',
                 description: 'Updated document data',
               },
+              databaseId: databaseIdProperty,
             },
             required: ['collection', 'id', 'data'],
           },
@@ -270,6 +294,7 @@ class FirebaseMcpServer {
                 type: 'string',
                 description: 'Document ID',
               },
+              databaseId: databaseIdProperty,
             },
             required: ['collection', 'id'],
           },
@@ -400,7 +425,9 @@ class FirebaseMcpServer {
           description: 'List root collections in Firestore',
           inputSchema: {
             type: 'object',
-            properties: {},
+            properties: {
+              databaseId: databaseIdProperty,
+            },
             required: [],
           },
         },
@@ -416,6 +443,7 @@ class FirebaseMcpServer {
                 description:
                   'The collection ID to query across all documents (without parent path)',
               },
+              databaseId: databaseIdProperty,
               filters: {
                 type: 'array',
                 description: 'Optional filters to apply to the query',
@@ -471,6 +499,16 @@ class FirebaseMcpServer {
             required: ['collectionId'],
           },
         },
+        {
+          name: 'firestore_list_databases',
+          description:
+            'List all Firestore databases in the Firebase project. Returns database IDs, locations, and types.',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -496,6 +534,7 @@ class FirebaseMcpServer {
           case 'firestore_add_document': {
             const collection = args.collection as string;
             const data = args.data as Record<string, unknown>;
+            const firestore = getFirestoreInstance(args.databaseId as string | undefined);
 
             // Process server timestamps and convert ISO date strings to Timestamps
             const processedData = Object.entries(data).reduce(
@@ -526,7 +565,7 @@ class FirebaseMcpServer {
               {} as Record<string, unknown>
             );
 
-            const docRef = await admin.firestore().collection(collection).add(processedData);
+            const docRef = await firestore.collection(collection).add(processedData);
 
             // Ensure clean JSON by parsing and re-stringifying
             const sanitizedJson = JSON.stringify({
@@ -550,8 +589,9 @@ class FirebaseMcpServer {
           case 'firestore_list_documents': {
             const collection = args.collection as string;
             const limit = Math.min(Math.max(1, (args.limit as number) || 20), 100); // Default 20, max 100
+            const firestore = getFirestoreInstance(args.databaseId as string | undefined);
 
-            let query: admin.firestore.Query = admin.firestore().collection(collection);
+            let query: admin.firestore.Query = firestore.collection(collection);
 
             // Apply filters if provided
             const filters = args.filters as
@@ -601,7 +641,7 @@ class FirebaseMcpServer {
             // Apply pagination if pageToken is provided
             const pageToken = args.pageToken as string | undefined;
             if (pageToken) {
-              const lastDoc = await admin.firestore().doc(pageToken).get();
+              const lastDoc = await firestore.doc(pageToken).get();
               if (lastDoc.exists) {
                 query = query.startAfter(lastDoc);
               }
@@ -683,8 +723,9 @@ class FirebaseMcpServer {
           case 'firestore_get_document': {
             const collection = args.collection as string;
             const id = args.id as string;
+            const firestore = getFirestoreInstance(args.databaseId as string | undefined);
 
-            const docRef = admin.firestore().collection(collection).doc(id);
+            const docRef = firestore.collection(collection).doc(id);
             const doc = await docRef.get();
 
             if (!doc.exists) {
@@ -757,6 +798,7 @@ class FirebaseMcpServer {
             const collection = args.collection as string;
             const id = args.id as string;
             const data = args.data as Record<string, unknown>;
+            const firestore = getFirestoreInstance(args.databaseId as string | undefined);
 
             // Process server timestamps and convert ISO date strings to Timestamps
             const processedData = Object.entries(data).reduce(
@@ -787,7 +829,7 @@ class FirebaseMcpServer {
               {} as Record<string, unknown>
             );
 
-            const docRef = admin.firestore().collection(collection).doc(id);
+            const docRef = firestore.collection(collection).doc(id);
             await docRef.update(processedData);
 
             // Ensure clean JSON by parsing and re-stringifying
@@ -813,8 +855,9 @@ class FirebaseMcpServer {
           case 'firestore_delete_document': {
             const collection = args.collection as string;
             const id = args.id as string;
+            const firestore = getFirestoreInstance(args.databaseId as string | undefined);
 
-            const docRef = admin.firestore().collection(collection).doc(id);
+            const docRef = firestore.collection(collection).doc(id);
             await docRef.delete();
 
             // Ensure clean JSON by parsing and re-stringifying
@@ -1224,6 +1267,7 @@ class FirebaseMcpServer {
 
               // Get document path parameter if provided
               const documentPath = args.documentPath as string | undefined;
+              const firestore = getFirestoreInstance(args.databaseId as string | undefined);
 
               // Make sure admin is properly initialized
               if (!app) {
@@ -1243,12 +1287,12 @@ class FirebaseMcpServer {
               // Import the standardized implementation from firestoreClient
               const firestoreClient = await import('./lib/firebase/firestoreClient.js');
 
-              // Call the standardized implementation with the document path and admin instance
+              // Call the standardized implementation with the document path and firestore instance
               const result = await firestoreClient.list_collections(
                 documentPath,
                 undefined,
                 undefined,
-                admin
+                firestore
               );
 
               // Log the response for debugging
@@ -1303,6 +1347,7 @@ class FirebaseMcpServer {
 
               const collectionId = args.collectionId as string;
               const limit = Math.min(Math.max(1, (args.limit as number) || 20), 100); // Default 20, max 100
+              const firestore = getFirestoreInstance(args.databaseId as string | undefined);
               const filters = args.filters as
                 | Array<{
                     field: string;
@@ -1316,7 +1361,7 @@ class FirebaseMcpServer {
               const pageToken = args.pageToken as string | undefined;
 
               // Use the Firestore instance directly
-              let query: FirebaseFirestore.Query = admin.firestore().collectionGroup(collectionId);
+              let query: FirebaseFirestore.Query = firestore.collectionGroup(collectionId);
 
               // Apply filters if provided
               if (filters && filters.length > 0) {
@@ -1353,7 +1398,7 @@ class FirebaseMcpServer {
               // Apply pagination if pageToken is provided
               if (pageToken) {
                 try {
-                  const lastDoc = await admin.firestore().doc(pageToken).get();
+                  const lastDoc = await firestore.doc(pageToken).get();
                   if (lastDoc.exists) {
                     query = query.startAfter(lastDoc);
                   }
@@ -1507,6 +1552,131 @@ class FirebaseMcpServer {
                 JSON.stringify(response)
               );
               return response;
+            }
+          }
+
+          case 'firestore_list_databases': {
+            try {
+              logger.debug('Listing Firestore databases');
+
+              if (!app) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ error: 'Firebase initialization failed' }),
+                    },
+                  ],
+                };
+              }
+
+              // Get access token from the Firebase app credential
+              const credential = app.options.credential;
+              if (!credential) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ error: 'No credential available' }),
+                    },
+                  ],
+                };
+              }
+
+              if (process.env.FIRESTORE_EMULATOR_HOST) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        error:
+                          'firestore_list_databases is not supported when using the Firestore emulator',
+                      }),
+                    },
+                  ],
+                };
+              }
+
+              const tokenResult = await credential.getAccessToken();
+              const projectId =
+                app.options.projectId ||
+                (config.serviceAccountKeyPath ? getProjectId(config.serviceAccountKeyPath) : null);
+
+              if (!projectId) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({ error: 'Could not determine project ID' }),
+                    },
+                  ],
+                };
+              }
+
+              const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases`;
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000);
+              let response: Response;
+              try {
+                response = await fetch(url, {
+                  headers: { Authorization: `Bearer ${tokenResult.access_token}` },
+                  signal: controller.signal,
+                });
+              } finally {
+                clearTimeout(timeoutId);
+              }
+
+              if (!response.ok) {
+                const errorBody = await response.text();
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        error: `Failed to list databases: ${response.status}`,
+                        details: errorBody,
+                      }),
+                    },
+                  ],
+                };
+              }
+
+              const data = (await response.json()) as {
+                databases?: Array<{
+                  name?: string;
+                  locationId?: string;
+                  type?: string;
+                  concurrencyMode?: string;
+                  deleteProtectionState?: string;
+                }>;
+              };
+              const databases = (data.databases || []).map(db => ({
+                id: db.name?.split('/').pop() || '',
+                location: db.locationId || '',
+                type: db.type || '',
+              }));
+
+              logger.debug(`Found ${databases.length} databases`);
+
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({ databases }),
+                  },
+                ],
+              };
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              logger.error('Error listing databases:', error);
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({ error: errorMessage }),
+                  },
+                ],
+              };
             }
           }
 

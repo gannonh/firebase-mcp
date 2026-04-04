@@ -32,6 +32,7 @@ describe('Config Module', () => {
     delete process.env.MCP_HTTP_PORT;
     delete process.env.MCP_HTTP_HOST;
     delete process.env.MCP_HTTP_PATH;
+    delete process.env.FIRESTORE_DATABASE_ID;
   });
 
   afterEach(() => {
@@ -190,6 +191,7 @@ describe('Config Module', () => {
       expect(config).toEqual({
         serviceAccountKeyPath: '/path/to/service-account.json',
         storageBucket: 'test-bucket',
+        firestoreDatabaseId: null,
         transport: TransportType.HTTP,
         http: {
           port: 4000,
@@ -235,6 +237,24 @@ describe('Config Module', () => {
 
       // Verify default to stdio
       expect(config.transport).toBe(TransportType.STDIO);
+    });
+
+    it('should read FIRESTORE_DATABASE_ID env var into firestoreDatabaseId', async () => {
+      process.env.FIRESTORE_DATABASE_ID = 'my-named-db';
+
+      const { getConfig } = await import('../config');
+      const config = getConfig();
+
+      expect(config.firestoreDatabaseId).toBe('my-named-db');
+    });
+
+    it('should default firestoreDatabaseId to null when FIRESTORE_DATABASE_ID not set', async () => {
+      delete process.env.FIRESTORE_DATABASE_ID;
+
+      const { getConfig } = await import('../config');
+      const config = getConfig();
+
+      expect(config.firestoreDatabaseId).toBeNull();
     });
 
     it('should log debug message when using HTTP transport', async () => {

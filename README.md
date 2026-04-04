@@ -92,6 +92,7 @@ Ask your AI client: "Please test all Firebase MCP tools."
 
 #### Optional
 - `FIREBASE_STORAGE_BUCKET`: Bucket name for Firebase Storage (defaults to `[projectId].appspot.com`)
+- `FIRESTORE_DATABASE_ID`: Firestore database ID to use for all operations (defaults to `(default)`). This is useful when working with [named Firestore databases](https://firebase.google.com/docs/firestore/manage-databases). Can be overridden per-tool call via the `databaseId` parameter.
 - `MCP_TRANSPORT`: Transport type to use (`stdio` or `http`) (defaults to `stdio`)
 - `MCP_HTTP_PORT`: Port for HTTP transport (defaults to `3000`)
 - `MCP_HTTP_HOST`: Host for HTTP transport (defaults to `localhost`)
@@ -124,6 +125,9 @@ Edit: `[project root]/.cursor/mcp.json`
 | `firestore_delete_document`        | Delete a document              | `collection`, `id`         |
 | `firestore_list_collections`       | List root collections          | None                       |
 | `firestore_query_collection_group` | Query across subcollections    | `collectionId`             |
+| `firestore_list_databases`         | List all databases in project  | None                       |
+
+All Firestore tools (except `firestore_list_databases`) accept an optional `databaseId` parameter to target a specific named Firestore database. The resolution order is: per-call `databaseId` parameter → `FIRESTORE_DATABASE_ID` environment variable → `(default)`. Use `firestore_list_databases` to discover available database IDs.
 
 ### Storage Tools
 

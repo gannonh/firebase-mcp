@@ -2594,6 +2594,15 @@ describe('Firebase MCP Server', () => {
       }));
       vi.doMock('../utils/logger', () => ({ logger: loggerMock }));
       vi.doMock('firebase-admin', () => adminMock);
+      vi.doMock('firebase-admin/firestore', () => ({
+        Timestamp: { fromDate: vi.fn() },
+        getFirestore: vi.fn().mockImplementation(() => {
+          throw genericError;
+        }),
+      }));
+      vi.doMock('../lib/firebase/firebaseConfig.js', () => ({
+        getProjectId: vi.fn().mockReturnValue('test-project'),
+      }));
 
       await import('../index');
 
