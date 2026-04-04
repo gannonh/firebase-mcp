@@ -1583,6 +1583,20 @@ class FirebaseMcpServer {
                 };
               }
 
+              if (process.env.FIRESTORE_EMULATOR_HOST) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: JSON.stringify({
+                        error:
+                          'firestore_list_databases is not supported when using the Firestore emulator',
+                      }),
+                    },
+                  ],
+                };
+              }
+
               const tokenResult = await credential.getAccessToken();
               const projectId =
                 app.options.projectId ||
